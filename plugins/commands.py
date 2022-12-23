@@ -288,10 +288,10 @@ async def start(client, message):
         reply_markup=InlineKeyboardMarkup(
             [
              [
-              InlineKeyboardButton('Sᴜᴘᴘᴏʀᴛ Gʀᴏᴜᴘ', url=GRP_LNK),
-              InlineKeyboardButton('Uᴘᴅᴀᴛᴇs Cʜᴀɴɴᴇʟ', url=CHNL_LNK)
+              InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
+              InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
            ],[
-              InlineKeyboardButton("Bᴏᴛ Oᴡɴᴇʀ", url="t.me/creatorbeatz")
+              InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
              ]
             ]
         )
