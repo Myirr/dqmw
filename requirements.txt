@@ -10,3 +10,4 @@ cinemagoer
 datetime
 pytz
 aiohttp
+Heroku3
