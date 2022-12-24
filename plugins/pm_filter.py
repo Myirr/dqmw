@@ -531,9 +531,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
                         reply_markup=InlineKeyboardMarkup(
                             [
                              [
-                              InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
-                              InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
-                           ],[
                               InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
                              ]
                             ]
@@ -579,9 +576,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                  [
-                  InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
-                  InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
-               ],[
                   InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
                  ]
                 ]
