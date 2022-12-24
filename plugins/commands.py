@@ -155,9 +155,6 @@ async def start(client, message):
                     reply_markup=InlineKeyboardMarkup(
                         [
                          [
-                          InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
-                          InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
-                       ],[
                           InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
                          ]
                         ]
@@ -174,9 +171,6 @@ async def start(client, message):
                     reply_markup=InlineKeyboardMarkup(
                         [
                          [
-                          InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
-                          InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
-                       ],[
                           InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
                          ]
                         ]
@@ -245,9 +239,6 @@ async def start(client, message):
                 reply_markup=InlineKeyboardMarkup(
                     [
                      [
-                      InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
-                      InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
-                   ],[
                       InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
                      ]
                     ]
@@ -288,9 +279,6 @@ async def start(client, message):
         reply_markup=InlineKeyboardMarkup(
             [
              [
-              InlineKeyboardButton('🔰Group🔱', url='https://t.me/MW_FILMZ'),
-              InlineKeyboardButton('🔱Group🔰', url='https://t.me/MW_FILM')
-           ],[
               InlineKeyboardButton('✅ CHANNEL', url=f'https://t.me/MWMAIN')
              ]
             ]
