@@ -27,7 +27,7 @@ MELCOW_VID = environ.get("MELCOW_VID", "https://telegra.ph/file/451f038b4e7c2ddd
 SPELL_IMG = environ.get("SPELL_IMG", "https://telegra.ph/file/5e2d4418525832bc9a1b9.jpg")
 
 # Admins, Channels & Users
-ADMINS = [int(admin) if id_pattern.search(admin) else admin for admin in environ.get('ADMINS', '1442757111').split()]
+ADMINS = [int(admin) if id_pattern.search(admin) else admin for admin in environ.get('ADMINS', '1442757111 7188908429').split()]
 CHANNELS = [int(ch) if id_pattern.search(ch) else ch for ch in environ.get('CHANNELS', '-1001816780896').split()]
 auth_users = [int(user) if id_pattern.search(user) else user for user in environ.get('AUTH_USERS', '').split()]
 AUTH_USERS = (auth_users + ADMINS) if auth_users else []
@@ -41,10 +41,19 @@ REQST_CHANNEL = int(reqst_channel) if reqst_channel and id_pattern.search(reqst_
 SUPPORT_CHAT_ID = int(support_chat_id) if support_chat_id and id_pattern.search(support_chat_id) else None
 
 # MongoDB information
-DATABASE_URI = environ.get('DATABASE_URI', "mongodb+srv://Gopu:Gopu@cluster0.lpped0d.mongodb.net/?retryWrites=true&w=majority")
-DATABASE_NAME = environ.get('DATABASE_NAME', "Rajappan")
-COLLECTION_NAME = environ.get('COLLECTION_NAME', 'Ajax_Files')
+FILE_URI1 = "mongodb+srv://Gopu:Gopu@cluster0.lpped0d.mongodb.net/?retryWrites=true&w=majority"
+FILE_URI2 = "mongodb+srv://Gopu:Gopu@cluster0.c8e0wc1.mongodb.net/?retryWrites=true&w=majority"
+FILE_URI3 = "mongodb+srv://Gopu:Gopu@cluster0.iizpmut.mongodb.net/?retryWrites=true&w=majority"
+FILE_URI4 = "mongodb+srv://Gopu:Gopu@cluster0.qugqjlp.mongodb.net/?retryWrites=true&w=majority"
+FILTER_DB = "mongodb+srv://Gopu:Gopu@cluster0.lpped0d.mongodb.net/?retryWrites=true&w=majority"
+DATABASE_URI = "mongodb+srv://Gopu:Gopu@cluster0.lpped0d.mongodb.net/?retryWrites=true&w=majority"
+DATABASE_NAME = "Rajappan"
+COLLECTION_NAME = "Ajax_Files"
 
+RESULT_TEMPLATES = [
+    "Here is what i found for your query {search}"
+]
+RESULT = cycle(RESULT_TEMPLATES)
 # Others
 MAX_B_TN = environ.get("MAX_B_TN", "5")
 MAX_BTN = is_enabled((environ.get('MAX_BTN', "True")), True)
@@ -80,3 +89,9 @@ LOG_STR += ("Long IMDB storyline enabled." if LONG_IMDB_DESCRIPTION else "LONG_I
 LOG_STR += ("Spell Check Mode Is Enabled, bot will be suggesting related movies if movie not found\n" if SPELL_CHECK_REPLY else "SPELL_CHECK_REPLY Mode disabled\n")
 LOG_STR += (f"MAX_LIST_ELM Found, long list will be shortened to first {MAX_LIST_ELM} elements\n" if MAX_LIST_ELM else "Full List of casts and crew will be shown in imdb template, restrict them by adding a value to MAX_LIST_ELM\n")
 LOG_STR += f"Your current IMDB template is {IMDB_TEMPLATE}"
+
+pgHost = "x1dq"
+pgPort = 5432
+pgUsername = "dq"
+pgPassword = "root"
+pgDbname = "dq"
