@@ -1,31 +1,39 @@
 import io
 from pyrogram import filters, Client, enums
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from database.filters_mdb import add_filter, get_filters, delete_filter, count_filters
+from database.gfilters_mdb import(
+   add_gfilter,
+   get_gfilters,
+   delete_gfilter,
+   count_gfilters
+)
+
+from database.connections_mdb import active_connection
 from utils import get_file_id, parser, split_quotes
 from info import ADMINS
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
-@Client.on_message(filters.command(['filter', 'add']) & filters.user(ADMINS) & filters.private)
-async def addfilter(client, message):
+@Client.on_message(filters.command(['gfilter', 'addg']) & filters.incoming & filters.user(ADMINS))
+async def addgfilter(client, message):
     args = message.text.html.split(None, 1)
-    if len(args) < 2: return await message.reply_text("Command Incomplete :(", quote=True)
+
+    if len(args) < 2:
+        await message.reply_text("Command Incomplete :(", quote=True)
+        return
 
     extracted = split_quotes(args[1])
     text = extracted[0].lower()
 
     if not message.reply_to_message and len(extracted) < 2:
-        return await message.reply_text("Add some content to save your filter!", quote=True)
+        await message.reply_text("Add some content to save your filter!", quote=True)
+        return
 
     if (len(extracted) >= 2) and not message.reply_to_message:
         reply_text, btn, alert = parser(extracted[1], text)
         fileid = None
         if not reply_text:
-            return await message.reply_text("You cannot have buttons alone, give some text to go with it!", quote=True)
+            await message.reply_text("You cannot have buttons alone, give some text to go with it!", quote=True)
+            return
 
     elif message.reply_to_message and message.reply_to_message.reply_markup:
         try:
@@ -64,48 +72,69 @@ async def addfilter(client, message):
             alert = None
     else:
         return
-    await add_filter(text, reply_text, btn, fileid, alert)
-    await message.reply_text(f"Filter for  `{text}`  added", quote=True, parse_mode=enums.ParseMode.MARKDOWN)
+
+    await add_gfilter('gfilters', text, reply_text, btn, fileid, alert)
+
+    await message.reply_text(
+        f"GFilter for  `{text}`  added",
+        quote=True,
+        parse_mode=enums.ParseMode.MARKDOWN
+    )
 
 
-@Client.on_message(filters.command(['viewfilters', 'filters']) & filters.user(ADMINS) & filters.private)
-async def get_all(client, message):
-    texts = await get_filters()
-    count = await count_filters()
+@Client.on_message(filters.command(['viewgfilters', 'gfilters']) & filters.incoming & filters.user(ADMINS))
+async def get_all_gfilters(client, message):
+    texts = await get_gfilters('gfilters')
+    count = await count_gfilters('gfilters')
     if count:
-        filterlist = f"Total number of filters: {count}\n\n"
-        for num, text in enumerate(texts, 1):
-            filterlist += f"{num}. `{text}`\n"
-        if len(filterlist) > 4096:
-            with io.BytesIO(str.encode(filterlist.replace("`", ""))) as keyword_file:
+        gfilterlist = f"Total number of gfilters : {count}\n\n"
+
+        for text in texts:
+            keywords = " ×  `{}`\n".format(text)
+
+            gfilterlist += keywords
+
+        if len(gfilterlist) > 4096:
+            with io.BytesIO(str.encode(gfilterlist.replace("`", ""))) as keyword_file:
                 keyword_file.name = "keywords.txt"
-                await message.reply_document(document=keyword_file, quote=True)
+                await message.reply_document(
+                    document=keyword_file,
+                    quote=True
+                )
             return
     else:
-        filterlist = f"There are no active filters"
-    await message.reply_text(text=filterlist, quote=True, parse_mode=enums.ParseMode.MARKDOWN)
-        
+        gfilterlist = f"There are no active gfilters."
 
-@Client.on_message(filters.command('del') & filters.user(ADMINS) & filters.private)
-async def deletefilter(client, message):
+    await message.reply_text(
+        text=gfilterlist,
+        quote=True,
+        parse_mode=enums.ParseMode.MARKDOWN
+    )
+        
+@Client.on_message(filters.command('delg') & filters.incoming & filters.user(ADMINS))
+async def deletegfilter(client, message):
     try:
         cmd, text = message.text.split(" ", 1)
     except:
-        return await message.reply_text(
-            "<i>Mention the filtername which you wanna delete!</i>\n\n<code>/del filtername</code>\n\nUse /viewfilters to view all available filters",
+        await message.reply_text(
+            "<i>Mention the gfiltername which you wanna delete!</i>\n\n"
+            "<code>/delg gfiltername</code>\n\n"
+            "Use /viewgfilters to view all available gfilters",
             quote=True
         )
-    query = text.strip().lower()
-    await delete_filter(message, query)
-        
+        return
 
-@Client.on_message(filters.command('delall') & filters.user(ADMINS) & filters.private)
-async def delallconfirm(client, message):
+    query = text.lower()
+
+    await delete_gfilter(message, query, 'gfilters')
+
+@Client.on_message(filters.command('delallg') & filters.user(ADMINS))
+async def delallgfilters(client, message):
     await message.reply_text(
-        f"This will delete all filters.\nDo you want to continue??",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(text="YES",callback_data="delallconfirm")],
-            [InlineKeyboardButton(text="CANCEL",callback_data="delallcancel")]
-        ]),
-        quote=True
-    )
+            f"Do you want to continue??",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(text="YES",callback_data="gfiltersdeleteallconfirm")],
+                [InlineKeyboardButton(text="CANCEL",callback_data="gfiltersdeleteallcancel")]
+            ]),
+            quote=True
+        )
