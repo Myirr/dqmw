@@ -1,15 +1,14 @@
-# https://github.com/odysseusmax/animated-lamp/blob/master/bot/database/database.py
-import motor.motor_asyncio
-from info import DATABASE_NAME, DATABASE_URI, IMDB, IMDB_TEMPLATE, MELCOW_NEW_USERS, P_TTI_SHOW_OFF, SINGLE_BUTTON, SPELL_CHECK_REPLY, PROTECT_CONTENT, AUTO_DELETE, MAX_BTN, AUTO_FFILTER
+from motor.motor_asyncio import AsyncIOMotorClient
+from info import DATABASE_NAME, DATABASE_URI
+from database.postgres import pgDb
 
 class Database:
-    
     def __init__(self, uri, database_name):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
+        self._client = AsyncIOMotorClient(uri)
         self.db = self._client[database_name]
         self.col = self.db.users
         self.grp = self.db.groups
-
+        self.sub = self.db.sub
 
     def new_user(self, id, name):
         return dict(
@@ -20,7 +19,6 @@ class Database:
                 ban_reason="",
             ),
         )
-
 
     def new_group(self, id, title):
         return dict(
@@ -35,10 +33,20 @@ class Database:
     async def add_user(self, id, name):
         user = self.new_user(id, name)
         await self.col.insert_one(user)
+        try:
+            async with pgDb.pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO users (id, name, is_banned, ban_reason)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        updated_at = CURRENT_TIMESTAMP
+                """, id, name[:100], False, "")
+        except Exception as e:
+            print("PostgreSQL add_user error:", e)
     
     async def is_user_exist(self, id):
-        user = await self.col.find_one({'id':int(id)})
-        return bool(user)
+        return await pgDb.is_user_exist(id)
     
     async def total_users_count(self):
         count = await self.col.count_documents({})
@@ -71,10 +79,8 @@ class Database:
     async def get_all_users(self):
         return self.col.find({})
     
-
     async def delete_user(self, user_id):
         await self.col.delete_many({'id': int(user_id)})
-
 
     async def get_banned(self):
         users = self.col.find({'ban_status.is_banned': True})
@@ -83,67 +89,62 @@ class Database:
         b_users = [user['id'] async for user in users]
         return b_users, b_chats
     
-
-
     async def add_chat(self, chat, title):
-        chat = self.new_group(chat, title)
-        await self.grp.insert_one(chat)
-    
+        chat_data = self.new_group(chat, title)
+        await self.grp.insert_one(chat_data)
+        try:
+            async with pgDb.pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO groups (id, title, is_disabled, reason)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (id) DO UPDATE SET
+                        title = EXCLUDED.title,
+                        updated_at = CURRENT_TIMESTAMP
+                """, chat, title, False, "")
+        except Exception as e:
+            print("PostgreSQL add_chat error:", e)
 
     async def get_chat(self, chat):
         chat = await self.grp.find_one({'id':int(chat)})
         return False if not chat else chat.get('chat_status')
-    
-
-    async def re_enable_chat(self, id):
-        chat_status=dict(
-            is_disabled=False,
-            reason="",
-            )
-        await self.grp.update_one({'id': int(id)}, {'$set': {'chat_status': chat_status}})
         
     async def update_settings(self, id, settings):
         await self.grp.update_one({'id': int(id)}, {'$set': {'settings': settings}})
         
-    
     async def get_settings(self, id):
         default = {
-            'button': SINGLE_BUTTON,
-            'botpm': P_TTI_SHOW_OFF,
-            'file_secure': PROTECT_CONTENT,
-            'imdb': IMDB,
-            'spell_check': SPELL_CHECK_REPLY,
-            'welcome': MELCOW_NEW_USERS,
-            'auto_delete': AUTO_DELETE,
-            'auto_ffilter': AUTO_FFILTER,
-            'max_btn': MAX_BTN,
-            'template': IMDB_TEMPLATE
+            'button': True,
+            'botpm': True,
+            'file_secure': False,
+            'spell_check': True,
+            'welcome': True
         }
         chat = await self.grp.find_one({'id':int(id)})
         if chat:
             return chat.get('settings', default)
         return default
     
-
-    async def disable_chat(self, chat, reason="No Reason"):
-        chat_status=dict(
-            is_disabled=True,
-            reason=reason,
-            )
-        await self.grp.update_one({'id': int(chat)}, {'$set': {'chat_status': chat_status}})
-    
-
-    async def total_chat_count(self):
-        count = await self.grp.count_documents({})
-        return count
-    
-
     async def get_all_chats(self):
         return self.grp.find({})
 
-
-    async def get_db_size(self):
-        return (await self.db.command("dbstats"))['dataSize']
-
+    async def set_channel(self, id):
+        if not await self.sub.find_one({'key': 'key'}):
+            await self.sub.insert_one({'key': 'key'})
+        await self.sub.update_one({'key': 'key'}, {'$set': {'channel': id}})
+           
+    async def get_channel(self):
+        ch = await self.sub.find_one({'key': 'key'})
+        if ch: return int(ch['channel'])
+        return None
+    
+    async def set_channel2(self, id):
+        if not await self.sub.find_one({'key2': 'key2'}):
+            await self.sub.insert_one({'key2': 'key2'})
+        await self.sub.update_one({'key2': 'key2'}, {'$set': {'channel2': id}})
+           
+    async def get_channel2(self):
+        ch = await self.sub.find_one({'key2': 'key2'})
+        if ch: return int(ch['channel2'])
+        return None
 
 db = Database(DATABASE_URI, DATABASE_NAME)
