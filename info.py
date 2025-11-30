@@ -50,7 +50,7 @@ FILTER_DB = "mongodb+srv://Gopu:Gopu@cluster0.lpped0d.mongodb.net/?retryWrites=t
 DATABASE_URI = "mongodb+srv://Gopu:Gopu@cluster0.lpped0d.mongodb.net/?retryWrites=true&w=majority"
 DATABASE_NAME = "Rajappan"
 COLLECTION_NAME = "Ajax_Files"
-
+DB_CHANNELS = [-1003098093708]
 RESULT_TEMPLATES = [
     "Here is what i found for your query {search}"
 ]
