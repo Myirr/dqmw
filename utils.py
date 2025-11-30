@@ -56,7 +56,7 @@ async def is_subscribed(bot, query):
     return False
 
 async def set_commands(client):
-    user_commands = [
+    user_command = [
         BotCommand("start", "🚀 Check the bot"),
         BotCommand("help", "❓ Get help"),
         BotCommand("latest", "🆕 Get latest list"),
