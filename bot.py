@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from database.postgres import pgDb
 from plugins.db_migration import hourly_backup
-from info import SESSION, API_ID, API_HASH, BOT_TOKEN, LOG_STR, LOG_CHANNEL, PORT
+from info import SESSION, API_ID, API_HASH, BOT_TOKEN, LOG_STR, LOG_CHANNEL, PORT, ADMINS
 from Script import script  
 import pytz
 from aiohttp import web
