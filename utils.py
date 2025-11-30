@@ -14,6 +14,7 @@ from typing import List
 from database.users_chats_db import db
 from bs4 import BeautifulSoup
 import requests
+from pyrogram.types import InlineKeyboardButton, BotCommand, BotCommandScopeChat, BotCommandScopeAllPrivateChats
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -53,6 +54,55 @@ async def is_subscribed(bot, query):
             return True
 
     return False
+
+async def set_commands(client):
+    user_commands = [
+        BotCommand("start", "🚀 Check the bot"),
+        BotCommand("help", "❓ Get help"),
+        BotCommand("latest", "🆕 Get latest list"),
+        BotCommand("about", "ℹ️ Know about me")
+    ]
+    
+    admin_commands = [
+        # Basic Commands
+        BotCommand("start", "🚀 Start the bot"),
+        BotCommand("stats", "📊 Get bot stats"),
+        BotCommand("server", "🖥️ Server stats"),
+        BotCommand("log", "📜 Get terminal log"),
+        BotCommand("id", "🆔 Get ID"),
+        
+        # Bot Control
+        BotCommand("update", "🔄 Update from git"),
+        BotCommand("restart", "♻️ Restart the bot"),
+        BotCommand("broadcast", "📢 Broadcast to all users"),
+        
+        # Force Subscribe
+        BotCommand("set_sub", "➕ Set new force sub"),
+        BotCommand("get_sub", "👁️ Get current force sub"),
+        BotCommand("del_req", "🗑️ Delete fsub request"),
+        BotCommand("total_req", "📋 View total fsub requests"),
+        
+        # Manual Filters
+        BotCommand("filter", "➕ Add manual filter"),
+        BotCommand("filters", "📂 View manual filters"),
+        BotCommand("del", "❌ Delete a filter"),
+        BotCommand("delall", "🧹 Delete all filters"),
+        
+        # Auto Filters / Index
+        BotCommand("delete", "🗑️ Delete specific file from index"),
+        BotCommand("deleteall", "⚠️ Delete all index (autofilter)"),
+        
+        # User Management
+        BotCommand("ban", "🚫 Ban a user"),
+        BotCommand("unban", "✅ Unban a user"),
+        
+        # Misc
+        BotCommand("migrationhelp", "📦 Migration help"),
+    ]
+    for id in ADMINS:
+        await client.set_bot_commands(admin_commands, scope=BotCommandScopeChat(id))
+    await client.set_bot_commands(user_command, scope=BotCommandScopeAllPrivateChats())
+        
 
 async def get_poster(query, bulk=False, id=False, file=None):
     if not id:
