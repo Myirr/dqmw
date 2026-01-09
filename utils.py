@@ -54,86 +54,222 @@ async def is_subscribed(bot, query):
 
     return False
 
-async def get_poster(query, bulk=False, id=False, file=None):
-    if not id:
-        # https://t.me/GetTGLink/4183
-        query = (query.strip()).lower()
-        title = query
-        year = re.findall(r'[1-2]\d{3}$', query, re.IGNORECASE)
-        if year:
-            year = list_to_str(year[:1])
-            title = (query.replace(year, "")).strip()
-        elif file is not None:
-            year = re.findall(r'[1-2]\d{3}', file, re.IGNORECASE)
-            if year:
-                year = list_to_str(year[:1]) 
-        else:
-            year = None
-        movieid = imdb.search_movie(title.lower(), results=10)
-        if not movieid:
+import re
+import aiohttp
+import difflib
+from urllib.parse import quote_plus
+
+from info import TMDB_API_KEY  # make sure it's in info.py
+
+TMDB_BASE = "https://api.themoviedb.org/3"
+TMDB_IMG  = "https://image.tmdb.org/t/p/original"
+
+def list_to_str(x):
+    if not x:
+        return "N/A"
+    if isinstance(x, str):
+        return x
+    try:
+        return ", ".join([str(i) for i in x if i])
+    except Exception:
+        return str(x)
+
+def _extract_year(query: str, file: str | None = None):
+    # only extract year (no other title changes)
+    y = re.findall(r"[1-2]\d{3}$", query or "", flags=re.IGNORECASE)
+    if y:
+        year = y[0]
+        title = (query.replace(year, "")).strip()
+        return title, int(year)
+    if file:
+        y2 = re.findall(r"[1-2]\d{3}", file or "", flags=re.IGNORECASE)
+        if y2:
+            return query.strip(), int(y2[0])
+    return query.strip(), None
+
+async def _tmdb_get(session: aiohttp.ClientSession, url: str):
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=20)) as r:
+        if r.status != 200:
             return None
-        if year:
-            filtered=list(filter(lambda k: str(k.get('year')) == str(year), movieid))
-            if not filtered:
-                filtered = movieid
-        else:
-            filtered = movieid
-        movieid=list(filter(lambda k: k.get('kind') in ['movie', 'tv series'], filtered))
-        if not movieid:
-            movieid = filtered
+        return await r.json()
+
+async def _tmdb_search_multi(session, title: str, year: int | None):
+    url = f"{TMDB_BASE}/search/multi?api_key={TMDB_API_KEY}&query={quote_plus(title)}&include_adult=false"
+    data = await _tmdb_get(session, url)
+    if not data:
+        return []
+
+    results = data.get("results") or []
+    # keep only tv/movie
+    results = [x for x in results if x.get("media_type") in ("tv", "movie")]
+
+    # if year is present, prefer matching year but don’t hard-filter
+    if year:
+        def _year_of(item):
+            d = item.get("first_air_date") if item.get("media_type") == "tv" else item.get("release_date")
+            if d and len(d) >= 4 and d[:4].isdigit():
+                return int(d[:4])
+            return None
+
+        scored = []
+        for it in results:
+            y = _year_of(it)
+            bonus = 0.0
+            if y == year:
+                bonus = 0.25
+            elif y is not None and abs(y - year) == 1:
+                bonus = 0.10
+            sc = difflib.SequenceMatcher(None, title.lower(), (it.get("name") or it.get("title") or "").lower()).ratio()
+            scored.append((sc + bonus, it))
+        scored.sort(key=lambda t: t[0], reverse=True)
+        return [x for _, x in scored]
+
+    # otherwise sort by best title similarity
+    results.sort(
+        key=lambda it: difflib.SequenceMatcher(
+            None, title.lower(), (it.get("name") or it.get("title") or "").lower()
+        ).ratio(),
+        reverse=True
+    )
+    return results
+
+async def _tmdb_details(session, media_type: str, tmdb_id: int):
+    # details + credits + external ids
+    url = f"{TMDB_BASE}/{media_type}/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits,external_ids"
+    return await _tmdb_get(session, url)
+
+def _pick_people(credits: dict, key: str, limit: int = 10):
+    if not credits:
+        return "N/A"
+    arr = credits.get(key) or []
+    names = [p.get("name") for p in arr if p.get("name")]
+    return list_to_str(names[:limit]) if names else "N/A"
+
+def _pick_jobs(credits: dict, jobs: set[str], limit: int = 10):
+    if not credits:
+        return "N/A"
+    crew = credits.get("crew") or []
+    names = []
+    for c in crew:
+        if c.get("job") in jobs and c.get("name"):
+            names.append(c["name"])
+    # unique preserve order
+    uniq = []
+    for n in names:
+        if n not in uniq:
+            uniq.append(n)
+    return list_to_str(uniq[:limit]) if uniq else "N/A"
+
+async def get_poster(query, bulk=False, id=False, file=None):
+    """
+    TMDB-ONLY replacement for your Cinemagoer get_poster().
+    Returns dict with same keys your IMDB_TEMPLATE expects (missing -> 'N/A').
+    """
+    # keep your signature compatible
+    q = (query or "").strip()
+    if not q:
+        return None
+
+    title, year = _extract_year(q.lower() if not id else q, file=file)
+
+    async with aiohttp.ClientSession() as session:
+        # If id=True, treat query as TMDB id is NOT supported in your flow,
+        # so we still do search. (You can extend to support tmdb ids if you want.)
+        results = await _tmdb_search_multi(session, title, year)
+        if not results:
+            return None
         if bulk:
-            return movieid
-        movieid = movieid[0].movieID
-    else:
-        movieid = query
-    movie = imdb.get_movie(movieid)
-    if movie.get("original air date"):
-        date = movie["original air date"]
-    elif movie.get("year"):
-        date = movie.get("year")
-    else:
-        date = "N/A"
-    plot = ""
-    if not LONG_IMDB_DESCRIPTION:
-        plot = movie.get('plot')
-        if plot and len(plot) > 0:
-            plot = plot[0]
-    else:
-        plot = movie.get('plot outline')
-    if plot and len(plot) > 800:
-        plot = plot[0:800] + "..."
+            return results
 
-    return {
-        'title': movie.get('title'),
-        'votes': movie.get('votes'),
-        "aka": list_to_str(movie.get("akas")),
-        "seasons": movie.get("number of seasons"),
-        "box_office": movie.get('box office'),
-        'localized_title': movie.get('localized title'),
-        'kind': movie.get("kind"),
-        "imdb_id": f"tt{movie.get('imdbID')}",
-        "cast": list_to_str(movie.get("cast")),
-        "runtime": list_to_str(movie.get("runtimes")),
-        "countries": list_to_str(movie.get("countries")),
-        "certificates": list_to_str(movie.get("certificates")),
-        "languages": list_to_str(movie.get("languages")),
-        "director": list_to_str(movie.get("director")),
-        "writer":list_to_str(movie.get("writer")),
-        "producer":list_to_str(movie.get("producer")),
-        "composer":list_to_str(movie.get("composer")) ,
-        "cinematographer":list_to_str(movie.get("cinematographer")),
-        "music_team": list_to_str(movie.get("music department")),
-        "distributors": list_to_str(movie.get("distributors")),
-        'release_date': date,
-        'year': movie.get('year'),
-        'genres': list_to_str(movie.get("genres")),
-        'poster': movie.get('full-size cover url'),
-        'plot': plot,
-        'rating': str(movie.get("rating")),
-        'url':f'https://www.imdb.com/title/tt{movieid}'
-    }
-# https://github.com/odysseusmax/animated-lamp/blob/2ef4730eb2b5f0596ed6d03e7b05243d93e3415b/bot/utils/broadcast.py#L37
+        best = results[0]
+        media_type = best["media_type"]  # "tv" or "movie"
+        tmdb_id = best["id"]
 
+        details = await _tmdb_details(session, media_type, tmdb_id)
+        if not details:
+            return None
+
+        # common fields
+        if media_type == "tv":
+            name = details.get("name") or best.get("name") or title
+            date = details.get("first_air_date") or best.get("first_air_date") or "N/A"
+            kind = "tv series"
+            seasons = details.get("number_of_seasons") or "N/A"
+            runtime = details.get("episode_run_time") or []
+            runtime = list_to_str(runtime) if runtime else "N/A"
+        else:
+            name = details.get("title") or best.get("title") or title
+            date = details.get("release_date") or best.get("release_date") or "N/A"
+            kind = "movie"
+            seasons = "N/A"
+            runtime = details.get("runtime")
+            runtime = str(runtime) if runtime else "N/A"
+
+        # external ids
+        ext = details.get("external_ids") or {}
+        imdb_id = ext.get("imdb_id")
+        imdb_id = imdb_id if imdb_id else "N/A"
+
+        # poster
+        poster_path = details.get("poster_path") or best.get("poster_path")
+        poster = f"{TMDB_IMG}{poster_path}" if poster_path else None
+
+        # overview/plot
+        plot = details.get("overview") or "N/A"
+        if plot != "N/A" and len(plot) > 800:
+            plot = plot[:800] + "..."
+
+        # rating/votes
+        rating = details.get("vote_average")
+        votes = details.get("vote_count")
+
+        # genres
+        genres = details.get("genres") or []
+        genres = list_to_str([g.get("name") for g in genres if g.get("name")]) if genres else "N/A"
+
+        # credits
+        credits = details.get("credits") or {}
+        cast = _pick_people(credits, "cast", limit=12)
+        director = _pick_jobs(credits, {"Director"}, limit=5)
+        writer = _pick_jobs(credits, {"Writer", "Screenplay", "Story", "Creator"}, limit=8)
+        producer = _pick_jobs(credits, {"Producer", "Executive Producer"}, limit=8)
+        composer = _pick_jobs(credits, {"Original Music Composer", "Composer"}, limit=5)
+        cinematographer = _pick_jobs(credits, {"Director of Photography"}, limit=5)
+
+        # TMDB urls
+        url = f"https://www.themoviedb.org/{media_type}/{tmdb_id}"
+
+        # Fill keys your template expects (unknown ones -> N/A)
+        return {
+            "title": name,
+            "votes": votes if votes is not None else "N/A",
+            "aka": "N/A",
+            "seasons": seasons,
+            "box_office": "N/A",
+            "localized_title": "N/A",
+            "kind": kind,
+            "imdb_id": imdb_id if imdb_id == "N/A" else imdb_id,  # already "tt...."
+            "cast": cast,
+            "runtime": runtime,
+            "countries": "N/A",
+            "certificates": "N/A",
+            "languages": "N/A",
+            "director": director,
+            "writer": writer,
+            "producer": producer,
+            "composer": composer,
+            "cinematographer": cinematographer,
+            "music_team": "N/A",
+            "distributors": "N/A",
+            "release_date": date,
+            "year": (str(year) if year else (date[:4] if isinstance(date, str) and len(date) >= 4 else "N/A")),
+            "genres": genres,
+            "poster": poster,  # this is what you use in reply_photo
+            "plot": plot,
+            "rating": str(rating) if rating is not None else "N/A",
+            "url": url
+}
+        
 async def broadcast_messages(user_id, message):
     try:
         await message.copy(chat_id=user_id)
